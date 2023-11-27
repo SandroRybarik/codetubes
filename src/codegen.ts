@@ -19,31 +19,6 @@ export function wrapWithGenerator(jsCodeLines: string, resumeToStep = 0) {
 		return `case ${caseVarName}:\n ${lc}\n` + 'yield null;'
 	}
 
-	const replaceAssignments = (lc: string) => {
-		const detectAssignment = /(const|let|var)\s*([^\s]+)\s*=/
-		const detectReassignment = /^([^\\s]+)\s*(=|\*=|-=|\/=|\+=|\+\+|--)/
-
-		const assignment = detectAssignment.exec(lc)
-		const reassignment = detectReassignment.exec(lc)
-
-		// modify assignment state to $state.[VARNAME] = ...
-		if (assignment) {
-			const keyword = assignment[1]
-			const varName = assignment[2]
-			let newLc = lc.replace(keyword, '')
-			newLc = newLc.replace(varName, `$state.${varName}`)
-			return newLc
-		}
-
-		// modify assignment state to $state.[VARNAME] = ...
-		if (reassignment) {
-			const varName = reassignment[1]
-			return lc.replace(varName, `$state.${varName}`)
-		}
-
-		return lc
-	}
-
 	const { before, mainBody } = extractMainFileParts(jsCodeLines)
 
 	const startVarName = '$start'
@@ -52,7 +27,6 @@ export function wrapWithGenerator(jsCodeLines: string, resumeToStep = 0) {
 		.split("\n")
 		.map(lc => lc.trim())
 		.filter(lc => lc !== '')
-		// .map(replaceAssignments)
 
 	// This is useful for executor to know how many steps this function should do
 	const numberOfSteps = generatorBodyCode.length
@@ -73,7 +47,8 @@ export function wrapWithGenerator(jsCodeLines: string, resumeToStep = 0) {
 			}
 
 			module.exports = {
-				generator
+				generator,
+				numberOfSteps: ${numberOfSteps},
 			}
 		`
 
@@ -113,9 +88,10 @@ export function extractMainFileParts(jsSource: string) {
 	}
 }
 
+// TODO: make outpath configurable
 export async function storeGeneratorToDisk(generatorFunction: string): Promise<string> {
 	const fileName = 'generator.js'
-	const outputPath = path.join('codegen', fileName);
+	const outputPath = path.join(__dirname, '..', 'codegen', fileName);
 	await fs.writeFile(outputPath, generatorFunction)
 	return outputPath
 }
