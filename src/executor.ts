@@ -1,5 +1,3 @@
-import StateManager from "./state_manager";
-
 export type ExecutionState = {
 	pc: number; // Program counter - by line
 }
@@ -8,13 +6,11 @@ export type ExecutorSettings = {
 	generatorFilePath: string
 	initialExecutionState: ExecutionState
 	initialUserState: Record<string, any>
-	stateFileName?: string
-	stateDir?: string
 }
 export type AfterStepHook = () => void
 export type CodegenGeneratorExport = {
 	numberOfSteps: number
-	generator: (state: Record<string, any>) => AsyncGenerator<number, any, any>
+	generator: (state: Record<string, any>, resumeFromStep: number) => AsyncGenerator<number, any, any>
 }
 
 
@@ -25,19 +21,12 @@ export class Executor {
 	private userState: UserState
 	private generator?: AsyncGenerator<number, any, any>
 	private numberOfSteps?: number
-	private stateManager: StateManager
 
 	constructor(settings: ExecutorSettings) {
 		this.settings = settings;
 		this.executionState = settings.initialExecutionState
 		this.userState = settings.initialUserState
 		this.hook = () => {}
-		// This is little inflexible
-		// TODO: look more into persistance layer
-		this.stateManager = new StateManager({
-			dir: this.settings?.stateDir ?? 'codegen',
-			fname: this.settings?.stateFileName ?? 'state',
-		})
 	}
 
 	setAfterStepHook(afterStepCall: AfterStepHook) {
@@ -63,7 +52,7 @@ export class Executor {
 		const { generator, numberOfSteps } = await import(generatorFilePath) as (CodegenGeneratorExport)
 		// Init generator with user's state
 		// execute and step will use this instance
-		this.generator = generator(this.userState)
+		this.generator = generator(this.userState, this.executionState.pc)
 		this.numberOfSteps = numberOfSteps;
 	}
 
@@ -84,6 +73,13 @@ export class Executor {
 		}
 	}
 
+	states(): { execution: ExecutionState, user: UserState  }  {
+		return {
+			execution: this.executionState,
+			user: this.userState,
+		}
+	}
+
 	/**
 	 * Run single stepper
 	 *
@@ -94,13 +90,8 @@ export class Executor {
 		this.executeGuard()
 		const r = await this.generator!.next()
 		if (r.done) { return true; }
-		this.hook()
 		this.executionState.pc++
-		// Serialize both states
-		await this.stateManager.save({
-			state: this.userState,
-			execution: this.executionState,
-		})
+		this.hook()
 		return false
 	}
 }

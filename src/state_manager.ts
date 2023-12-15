@@ -2,10 +2,8 @@ import fs from "fs/promises";
 import path from "path";
 
 type StateManagerOptions = {
-	// String path where state should be stored
-	dir: string;
-	// Filename of the serialized state
-	fname: string;
+	// File path of the serialized state
+	file: string;
 }
 
 export default class StateManager {
@@ -19,8 +17,7 @@ export default class StateManager {
 	 * Loads state from disk.
 	 */
 	async load<T>(): Promise<T> {
-		const storePath = path.join(this.options.dir, `${this.options.fname}.json`)
-		const readFileBuf = await fs.readFile(storePath, 'utf8');
+		const readFileBuf = await fs.readFile(this.options.file, 'utf8');
 		const stateJsonStr = readFileBuf.toString()
 		return JSON.parse(stateJsonStr);
 	}
@@ -30,7 +27,6 @@ export default class StateManager {
 	 */
 	save(state: Record<string, any>): Promise<void> {
 		const json = JSON.stringify(state);
-		const storePath = path.join(this.options.dir, `${this.options.fname}.json`)
-		return fs.writeFile(storePath, json);
+		return fs.writeFile(this.options.file, json);
 	}
 }

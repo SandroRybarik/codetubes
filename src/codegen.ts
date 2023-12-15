@@ -6,7 +6,7 @@ import path from 'path'
  * allowing us to yield each line of code.
  * @version 0.0.1-MVP
  */
-export function wrapWithGenerator(jsCodeLines: string, resumeToStep = 0) {
+export function wrapWithGenerator(jsCodeLines: string) {
 	const addYieldStatement = (lc: string, caseVarName: string) => {
 		const detectRequireImport = /require\(.+\)/
 
@@ -36,21 +36,21 @@ export function wrapWithGenerator(jsCodeLines: string, resumeToStep = 0) {
 
 
 	const mainFileSource = `
-			${before}
+${before}
 
-			async function *generator($state) {
-				const ${startVarName} = ${resumeToStep}
-				const ${caseVarName} = 0;
-				switch(${startVarName}) {
-				${generatorBodyCode.join('\n')}
-				}
-			}
+async function *generator($state, resumeToStep) {
+	const ${startVarName} = resumeToStep;
+	const ${caseVarName} = 0;
+	switch(${startVarName}) {
+	${generatorBodyCode.join('\n')}
+	}
+}
 
-			module.exports = {
-				generator,
-				numberOfSteps: ${numberOfSteps},
-			}
-		`
+module.exports = {
+	generator,
+	numberOfSteps: ${numberOfSteps},
+}
+	`
 
 	return {
 		mainFileSource,
@@ -88,7 +88,9 @@ export function extractMainFileParts(jsSource: string) {
 	}
 }
 
-// TODO: make outpath configurable
+/**
+ * @param generatorFunction function source code
+ */
 export async function storeGeneratorToDisk(generatorFunction: string): Promise<string> {
 	const fileName = 'generator.js'
 	const outputPath = path.join(__dirname, '..', 'codegen', fileName);
